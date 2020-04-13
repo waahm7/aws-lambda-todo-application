@@ -16,7 +16,8 @@ export async function getAllTodos(event:APIGatewayProxyEvent): Promise<TodoItem[
    return await groupAccess.getAllTodos(userId)
 }
 export async function generateURL(todoId:string,event:APIGatewayProxyEvent):Promise<any>{
-    return await groupAccess.generateUrl(todoId,event)
+    const userId=await getUserId(event)
+    return await groupAccess.generateUrl(todoId,event,userId)
 }
 
 export async function updateTodo(todoId, updatedTodo:UpdateTodoRequest): Promise<UpdateItemOutput[]>{

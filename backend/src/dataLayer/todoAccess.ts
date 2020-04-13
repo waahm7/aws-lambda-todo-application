@@ -98,19 +98,21 @@ export class TodoAccess {
 
         return result as unknown as UpdateItemOutput[]
     }
-     async generateUrl(todoId:string,event:any){
+     async generateUrl(todoId:string,event:any,userId:string){
         const uploadUrl= s3.getSignedUrl('putObject', {
             Bucket:bucketName,
             Key: todoId,
             Expires: urlExpiration
           })
-        
+          const imageId = uuid.v4()
+          const newItem = await createImage(todoId, imageId, event)
+
            await docClient.update({
                 TableName: this.todosTable,
                 Key: { todoId },
                 UpdateExpression: 'set attachmentUrl = :attachmentUrl',
                 ExpressionAttributeValues: {
-                  ":attachmentUrl":`https://serverless-todo-waahm-dev.s3.amazonaws.com/${todoId}`
+                  ":attachmentUrl":`https://serverless-todo-waahm9-dev.s3.amazonaws.com/${todoId}`
                 },
               }).promise();
         

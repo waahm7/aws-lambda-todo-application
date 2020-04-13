@@ -5,13 +5,52 @@ plugins:
   - serverless-webpack
   - serverless-iam-roles-per-function
   - serverless-reqvalidator-plugin
+  - serverless-alexa-skills
+
+custom:
+  alexa:
+    vendorId: ${env:AMAZON_VENDOR_ID}
+    clientId: ${env:AMAZON_CLIENT_ID}
+    clientSecret: ${env:AMAZON_CLIENT_SECRET}
+    localServerPort: 9000
+    skills:
+      - id: amzn1.ask.skill.6d59ee26-5ad9-4da3-a45b-03234c944549
+        manifest:
+          publishingInformation:
+            locales:
+              en-US:
+                name: todo_list
+          apis:
+            custom:
+              endpoint:
+                uri: arn:aws:lambda:us-east-1:323297178243:function:serverless-todo-dev-todoHandler 
+          manifestVersion: '1.0'
+        models:
+          en-US:
+            interactionModel:
+              languageModel:
+                invocationName: todos list
+                intents:
+                  - name: TodoIntent
+                    samples:
+                    - 'get all my todos'
+                    - 'my todos'
+                    - 'give me all my todos'
+                    - 'anything interesting in my todos'
+                  - name: AMAZON.HelpIntent
+                    samples: []
+                  - name: AMAZON.CancelIntent
+                    samples: []
+                  - name: AMAZON.StopIntent
+                    samples: []
+
 provider:
   name: aws
   runtime: nodejs12.x
  
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
-
+      
   environment:
     TODOS_TABLE: Todos5-${self:provider.stage}
     TODOS_TABLE_INDEX: userId
@@ -19,7 +58,7 @@ provider:
     IMAGES_TABLE: Images2-${self:provider.stage}
     IMAGE_ID_INDEX: ImageIdIndex
     TODOS_TOKEN_INDEX: userId
-    IMAGES_S3_BUCKET: serverless-todo-waahm9-${self:provider.stage}
+    IMAGES_S3_BUCKET: serverless-todo-waah9-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
 
   iamRoleStatements:
@@ -69,6 +108,11 @@ HttpHandler:
               application/json: ${file(models/create-todo-model.json)}
 
 functions:
+ 
+  todoHandler:
+    handler: index.todoHandler
+    events:
+      - alexaSkill: amzn1.ask.skill.6d59ee26-5ad9-4da3-a45b-03234c944549
 
   Auth:
     handler: src/lambda/auth/auth0Authorizer.handler
