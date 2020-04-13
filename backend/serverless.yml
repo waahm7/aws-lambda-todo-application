@@ -1,5 +1,5 @@
 service:
-  name: serverless-todo-list-app
+  name: serverless-todo
 
 plugins:
   - serverless-webpack
@@ -8,20 +8,18 @@ plugins:
 provider:
   name: aws
   runtime: nodejs12.x
-  tracing:
-    lambda: true
-    apiGateway: true
+ 
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
 
   environment:
-    TODOS_TABLE: Todos4-${self:provider.stage}
+    TODOS_TABLE: Todos5-${self:provider.stage}
     TODOS_TABLE_INDEX: userId
     
-    IMAGES_TABLE: Images-${self:provider.stage}
+    IMAGES_TABLE: Images2-${self:provider.stage}
     IMAGE_ID_INDEX: ImageIdIndex
     TODOS_TOKEN_INDEX: userId
-    IMAGES_S3_BUCKET: serverless-waahm7-images-${self:provider.stage}
+    IMAGES_S3_BUCKET: serverless-todo-waahm-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
 
   iamRoleStatements:
@@ -119,16 +117,15 @@ functions:
             requestModels:
               'application/json': TodosRequest
     iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - xray:PutTraceSegments
-        - xray:PutTelemetryRecords
-      Resource: "*"
-  # TODO: Configure this function
-    - Effect: Allow
-      Action:
-        - dynamodb:UpdateItem
-      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+      - Effect: Allow
+        Action:
+          - xray:PutTraceSegments
+          - xray:PutTelemetryRecords
+        Resource: "*"
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
 
   # TODO: Configure this function
   DeleteTodo:
@@ -148,11 +145,6 @@ functions:
           method: post
           path: todos/{todoId}/attachment
     iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - dynamodb:GetItem
-          - dynamodb:UpdateItem
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
       - Effect: Allow
         Action:
           - s3:PutObject
