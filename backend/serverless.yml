@@ -15,11 +15,11 @@ provider:
   environment:
     TODOS_TABLE: Todos5-${self:provider.stage}
     TODOS_TABLE_INDEX: userId
-    
+
     IMAGES_TABLE: Images2-${self:provider.stage}
     IMAGE_ID_INDEX: ImageIdIndex
     TODOS_TOKEN_INDEX: userId
-    IMAGES_S3_BUCKET: serverless-todo-waahm-${self:provider.stage}
+    IMAGES_S3_BUCKET: serverless-todo-waahm9-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
 
   iamRoleStatements:
@@ -51,7 +51,11 @@ provider:
       Action:
         - dynamodb:Query
       Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.IMAGES_TABLE}/index/${self:provider.environment.IMAGE_ID_INDEX}
-
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:GetObject
+      Resource: arn:aws:s3:::${self:provider.environment.IMAGES_S3_BUCKET}/*
     
 HttpHandler:
     handler: src/lambda/http/create.handler
@@ -126,6 +130,7 @@ functions:
         Action:
           - dynamodb:UpdateItem
         Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        
 
   # TODO: Configure this function
   DeleteTodo:
@@ -144,12 +149,8 @@ functions:
       - http:
           method: post
           path: todos/{todoId}/attachment
-    iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - s3:PutObject
-          - s3:GetObject
-        Resource: arn:aws:s3:::${self:provider.environment.IMAGES_S3_BUCKET}/*
+          authorizer: Auth
+          cors: true
 
 resources:
   Resources:
@@ -221,7 +222,7 @@ resources:
             Projection:
               ProjectionType: ALL      
     
-    ThumbnailsBucket:
+    AttachmentsBucket:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:provider.environment.IMAGES_S3_BUCKET}
@@ -240,16 +241,16 @@ resources:
                 - HEAD
               MaxAge: 3000
         ## Specifying the policies to make sure all files inside the Bucket are avaialble to CloudFront
-    ThumbnailsBucketPolicy:
+    BucketPolicy:
       Type: AWS::S3::BucketPolicy
       Properties:
-        Bucket:
-          Ref: ThumbnailsBucket
         PolicyDocument:
+          Id: MyPolicy
+          Version: "2012-10-17"
           Statement:
-            - Sid: PublicReadGetObject
+            - Sid: PublicReadForGetBucketObjects
               Effect: Allow
-              Principal: "*"
-              Action:
-              - s3:GetObject
-              Resource: arn:aws:s3:::${self:provider.environment.IMAGES_S3_BUCKET}/*
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: 'arn:aws:s3:::${self:provider.environment.IMAGES_S3_BUCKET}/*'
+        Bucket: !Ref AttachmentsBucket

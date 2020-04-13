@@ -99,22 +99,23 @@ export class TodoAccess {
         return result as unknown as UpdateItemOutput[]
     }
      async generateUrl(todoId:string,event:any){
-        const imageId = uuid.v4()
-        const newItem = await createImage(todoId, imageId, event)
-        const url = getUploadUrl(imageId)
+        const uploadUrl= s3.getSignedUrl('putObject', {
+            Bucket:bucketName,
+            Key: todoId,
+            Expires: urlExpiration
+          })
         
-          return {
-            statusCode: 200,
-            headers: {
-              'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({
-              newItem: newItem,
-              uploadUrl: url
-            })
+           await docClient.update({
+                TableName: this.todosTable,
+                Key: { todoId },
+                UpdateExpression: 'set attachmentUrl = :attachmentUrl',
+                ExpressionAttributeValues: {
+                  ":attachmentUrl":`https://serverless-todo-waahm-dev.s3.amazonaws.com/${todoId}`
+                },
+              }).promise();
+        
+           return uploadUrl;
           }
-            
-        }
 }
 
 async function createImage(todoId: string, imageId: string, event: any) {
