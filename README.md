@@ -2,6 +2,9 @@
 
 A serverless todo application in which user can also interact with the app using alexa. I have added custom alexa skills to call respective lambda functions like get all todos.
 
+![Alt text](https://user-images.githubusercontent.com/7613045/79148147-7d806680-7dde-11ea-9167-2aca5b8d4029.png)
+
+
 # Functionality of the application
 
 This appliation will allow to create/remove/update/get TODO items. Each TODO item can optionally have an attachment image. Each user only has access to TODO items that he/she has created. 
