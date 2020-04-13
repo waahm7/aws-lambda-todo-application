@@ -5,43 +5,151 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 const XAWS = AWSXRay.captureAWS(AWS)
 
 import { TodoItem } from '../models/TodoItem'
+import { TodoUpdate } from '../models/TodoUpdate'
+import * as uuid from 'uuid'
+import { UpdateTodoRequest } from '../requests/UpdateTodoRequest';
+import { UpdateItemOutput, DeleteItemOutput } from 'aws-sdk/clients/dynamodb';
+
+const s3 = new AWS.S3({
+    signatureVersion: 'v4'
+  })
+const imagesTable = process.env.IMAGES_TABLE
+const bucketName = process.env.IMAGES_S3_BUCKET
+const urlExpiration  = parseInt(process.env.SIGNED_URL_EXPIRATION,10)
+const docClient: DocumentClient = createDynamoDBClient()
 
 export class TodoAccess {
 
   constructor(
-    private readonly docClient: DocumentClient = createDynamoDBClient(),
     private readonly todosTable = process.env.TODOS_TABLE) {
   }
 
-  async getAllTodos(): Promise<TodoItem[]> {
-    console.log('Getting all todos')
-
-    const result = await this.docClient.scan({
-      TableName: this.todosTable
-    }).promise()
-
-    const items = result.Items
-    return items as TodoItem[]
-  }
 
   async createTodo(todo: TodoItem): Promise<TodoItem> {
-    await this.docClient.put({
+    await docClient.put({
       TableName: this.todosTable,
       Item: todo
     }).promise()
 
     return todo
   }
+  async todoExists(groupId: string) {
+    const result = await docClient
+      .get({
+        TableName: this.todosTable,
+        Key: {
+          todoId: groupId
+        }
+      })
+      .promise()
+  
+    console.log('Get group: ', result)
+    return !!result.Item
+  }
+  async getAllTodos(userId:string): Promise<TodoItem[]> {
+    console.log('Getting all todos')
+
+    const result = await docClient.query({
+      TableName: this.todosTable,
+      IndexName: "userId",
+      KeyConditionExpression:"userId= :val",
+      ExpressionAttributeValues: {
+        ":val": userId
+        },
+        ScanIndexForward: false
+
+    }).promise()
+
+    const items = result.Items
+    return items as TodoItem[]
+  }
+  async deleteTodo(todosId:string):Promise<string>{
+    await docClient.delete({
+      TableName: this.todosTable,
+      Key:{
+        "todoId": todosId
+    },
+      ConditionExpression:"todoId= :val",
+      ExpressionAttributeValues: {
+          ":val": todosId
+    }
+    }).promise()
+    return "deleted"
+    }
+    async updateTodo(todoId, updatedTodo:UpdateTodoRequest): Promise<UpdateItemOutput[]>{
+        const result = await docClient.update({
+            TableName: this.todosTable,
+            Key: {
+                "todoId": todoId
+            },
+            UpdateExpression: "set #name=:name, #dueDate=:dueDate, #done=:done",
+            ExpressionAttributeNames:{
+              "#name": "name",
+              "#dueDate": "dueDate",
+              "#done": "done"
+            },
+            ExpressionAttributeValues:{
+                ":name": updatedTodo.name,
+                ":dueDate": updatedTodo.dueDate,
+                ":done": updatedTodo.done
+            },
+            ReturnValues:"UPDATED_NEW"
+          }).promise()
+
+        return result as unknown as UpdateItemOutput[]
+    }
+     async generateUrl(todoId:string,event:any){
+        const imageId = uuid.v4()
+        const newItem = await createImage(todoId, imageId, event)
+        const url = getUploadUrl(imageId)
+        
+          return {
+            statusCode: 200,
+            headers: {
+              'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({
+              newItem: newItem,
+              uploadUrl: url
+            })
+          }
+            
+        }
 }
 
-function createDynamoDBClient() {
-  if (process.env.IS_OFFLINE) {
-    console.log('Creating a local DynamoDB instance')
-    return new XAWS.DynamoDB.DocumentClient({
-      region: 'localhost',
-      endpoint: 'http://localhost:8000'
-    })
+async function createImage(todoId: string, imageId: string, event: any) {
+    const timestamp = new Date().toISOString()
+    const newImage = JSON.parse(event.body)
+  
+    const newItem = {
+      todoId,
+      timestamp,
+      imageId,
+      ...newImage,
+      imageUrl: `https://${bucketName}.s3.amazonaws.com/${imageId}`
+    }
+    console.log('Storing new item: ', newItem)
+  
+    await docClient
+      .put({
+        TableName: imagesTable,
+        Item: newItem
+      })
+      .promise()
+  
+    return newItem
   }
+  function getUploadUrl(imageId: string) {
+    console.log("expires"+urlExpiration)
+    return s3.getSignedUrl('putObject', {
+      Bucket: bucketName,
+      Key: imageId,
+      Expires: urlExpiration
+    })
+    
+  }
+  
 
-  return new XAWS.DynamoDB.DocumentClient()
+function createDynamoDBClient() {
+  return new AWS.DynamoDB.DocumentClient()
 }
