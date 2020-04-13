@@ -1,6 +1,6 @@
 # Serverless TODO
 
-To implement this project you need to implement a simple TODO application using AWS Lambda and Serverless framework. Search for all the `TODO:` comments in the code to find the placeholders that you need to implement.
+A serverless todo application in which user can also interact with the app using alexa. I have added custom alexa skills to call respective lambda functions like get all todos.
 
 # Functionality of the application
 
